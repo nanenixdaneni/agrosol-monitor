@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroSol Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#F1F4EF; --surface:#FCFDFB; --surface-2:#E6ECE4; --ink:#17201B; --muted:#5A665F; --line:#D3DCD3;
+  --accent:#2F6B3A; --accent-ink:#FFFFFF; --accent-soft:#DCEBDD; --focus:#1F5FB0;
+  --temp:#eb6834; --luz:#c98500; --suelo:#1baf7a; --agua:#2a78d6;
+  --good:#1f8a4c; --warn:#b26b00; --bad:#c0392b;
+  --rain:#DCE8F7; --dry:#F6EBD7; --grid:#E1E7E0;
+  --font:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1411; --surface:#171E1A; --surface-2:#212A24; --ink:#E6ECE7; --muted:#9BA89F; --line:#2D3832;
+    --accent:#5FB36E; --accent-ink:#0B1A0F; --accent-soft:#1F3324; --focus:#6FA8F0;
+    --temp:#d95926; --luz:#e2a523; --suelo:#199e70; --agua:#3987e5;
+    --good:#4cc27e; --warn:#e3a33a; --bad:#ef6b5c; --rain:#16263A; --dry:#2E2615; --grid:#243029;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1411; --surface:#171E1A; --surface-2:#212A24; --ink:#E6ECE7; --muted:#9BA89F; --line:#2D3832;
+  --accent:#5FB36E; --accent-ink:#0B1A0F; --accent-soft:#1F3324; --focus:#6FA8F0;
+  --temp:#d95926; --luz:#e2a523; --suelo:#199e70; --agua:#3987e5;
+  --good:#4cc27e; --warn:#e3a33a; --bad:#ef6b5c; --rain:#16263A; --dry:#2E2615; --grid:#243029;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,3vw,32px);padding-block:18px 48px;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.brand h1{margin:0;font-size:clamp(1.5rem,3.4vw,2.1rem);line-height:1.1;letter-spacing:-.01em}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:10px}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:9px 15px;font-weight:700}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);font-weight:400}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+select,input,textarea{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.status{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.86rem;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.status.on .dot{background:var(--good);animation:latido 1.6s infinite}
+.status.demo .dot{background:var(--warn);animation:latido 1.6s infinite}
+@keyframes latido{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,currentColor 0%,transparent)}50%{transform:scale(1.35)}}
+.notice{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;padding:10px 14px;font-size:.93rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;color:var(--muted);font-weight:700}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.view{display:grid;gap:16px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);padding:14px 16px;text-align:left;display:grid;gap:2px;position:relative;overflow:hidden;transition:transform .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
+.tile[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.tile .lab{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.tile .val{font-family:var(--mono);font-size:1.55rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile .sub{font-size:.84rem;color:var(--muted)}
+.tile.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{background:color-mix(in srgb,var(--c) 22%,var(--surface))}100%{background:var(--surface)}}
+.spark{height:26px;width:100%;margin-top:4px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px}
+.panel h2{margin:0;font-size:1.22rem}
+.panel h3{margin:0;font-size:1rem}
+.lead{margin:0;color:var(--muted);max-width:80ch}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:var(--surface);padding:6px 12px;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.charts{grid-template-columns:1fr}}
+.chart{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;background:var(--bg)}
+.chart .cap{margin:0;font-size:.8rem;color:var(--muted)}
+.chart svg{width:100%;height:auto;display:block;margin-top:auto}
+.chart svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:.78rem;padding:5px 9px;border-radius:7px;white-space:nowrap;transform:translate(-50%,-125%);z-index:3}
+.empty{color:var(--muted);font-size:.95rem;padding:16px 0}
+.verdict{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
+.badge{flex:none;font-weight:700;font-size:.82rem;padding:4px 10px;border-radius:999px;color:#fff}
+.badge.good{background:var(--good)} .badge.warn{background:var(--warn)} .badge.bad{background:var(--bad)}
+.verdict b{display:block;font-size:1.08rem}
+.conds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.cond{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.cond .lab{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.cond .v{font-family:var(--mono);font-size:1.08rem;font-variant-numeric:tabular-nums}
+.crops{display:grid;gap:10px}
+.crop{display:grid;grid-template-columns:minmax(130px,180px) 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+@media (max-width:640px){.crop{grid-template-columns:1fr}}
+.crop .name{font-weight:700}
+.crop .why{font-size:.86rem;color:var(--muted)}
+.crop .pc{font-family:var(--mono)}
+.meter{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;border-radius:99px;transition:width .6s}
+.small{font-size:.85rem;color:var(--muted);margin:0;max-width:90ch}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.txt{font-family:var(--font);white-space:normal;text-align:left}
+.ok{color:var(--good);font-weight:700} .low{color:var(--warn);font-weight:700} .high{color:var(--bad);font-weight:700}
+/* calendario */
+.cal-wrap{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.cal-wrap{grid-template-columns:1fr}}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cal-head b{font-size:1.1rem;text-transform:capitalize}
+.season{font-size:.8rem;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .dn{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;font-weight:700;padding:4px 0}
+.day{aspect-ratio:1/0.9;min-height:44px;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:4px 6px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;position:relative;font-size:.85rem}
+.day.out{opacity:.35}
+.day.rain{background:var(--rain)} .day.dry{background:var(--dry)}
+.day.today{border:2px solid var(--ink)}
+.day[aria-pressed="true"]{box-shadow:0 0 0 3px var(--focus)}
+.day .n{font-family:var(--mono);font-weight:600}
+.day .marks{display:flex;gap:3px;align-items:center}
+.mk{width:8px;height:8px;border-radius:50%}
+.mk.data{background:var(--suelo)} .mk.reg{background:var(--temp);border-radius:2px}
+.day .win{position:absolute;left:4px;right:4px;bottom:2px;height:4px;border-radius:3px;background:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:10px;border-radius:3px;border:1px solid var(--line)}
+form.reg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+form.reg label{display:grid;gap:3px;font-size:.84rem;color:var(--muted)}
+form.reg .full{grid-column:1/-1}
+@media (max-width:520px){form.reg{grid-template-columns:1fr}}
+.toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:.9rem;opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:9}
+.toast.show{opacity:1;transform:none}
+.search{display:flex;gap:8px;flex-wrap:wrap}
+.search input{flex:1;min-width:200px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:.84rem}
+.big-date{font-family:var(--mono);font-size:1.25rem;font-weight:600}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Agro<span>Sol</span> Monitor</h1>
+      <p>Estación meteorológica escolar · Bosconia, Cesar · NASA Space Apps 2026</p>
+    </div>
+    <div class="controls">
+      <button class="btn" id="btnConectar" type="button">Conectar micro:bit</button>
+      <button class="btn ghost" id="btnPedir" type="button" title="Pide a la estación una medición ahora">Pedir datos ahora</button>
+      <label class="small" for="auto">Pedir cada</label>
+      <select id="auto" aria-label="Pedir datos automáticamente">
+        <option value="0">Nunca</option><option value="60">1 min</option><option value="300">5 min</option>
+        <option value="600">10 min</option><option value="1800">30 min</option>
+      </select>
+      <button class="btn ghost" id="btnDemo" type="button">Modo demostración</button>
+      <span class="status" id="estado"><span class="dot"></span><span id="estadoTxt">Sin conexión</span></span>
+    </div>
+  </header>
+
+  <div class="notice" id="avisoSerial" hidden>Este navegador no puede conectarse por USB. Abra esta página en <b>Google Chrome</b> o <b>Microsoft Edge</b> en un computador. Mientras tanto puede usar el <b>Modo demostración</b>.</div>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button class="tab" role="tab" data-tab="vivo" aria-selected="true">En vivo</button>
+    <button class="tab" role="tab" data-tab="calendario" aria-selected="false">Calendario y registro</button>
+    <button class="tab" role="tab" data-tab="sembrar" aria-selected="false">¿Qué puedo sembrar?</button>
+    <button class="tab" role="tab" data-tab="micultivo" aria-selected="false">Mi cultivo</button>
+  </nav>
+
+  <!-- EN VIVO -->
+  <section class="view" id="v-vivo">
+    <div class="tiles" id="tiles"></div>
+    <section class="panel" id="panelVar"></section>
+    <section class="panel">
+      <div class="row"><h2>Últimas lecturas</h2>
+        <div class="controls"><button class="btn ghost" id="btnCsv" type="button">Exportar lecturas (CSV)</button>
+        <button class="btn ghost" id="btnBorrar" type="button">Borrar lecturas</button></div></div>
+      <div class="tbl"><table id="tabla"></table></div>
+      <p class="small">Calibración: suelo saturado = <span id="calSuelo"></span> (lectura cruda); sensor mojado si el agua supera <span id="calAgua"></span>. La temperatura es del sensor interno de la micro:bit y es aproximada hasta calibrarla.</p>
+    </section>
+  </section>
+
+  <!-- CALENDARIO -->
+  <section class="view" id="v-calendario" hidden>
+    <div class="cal-wrap">
+      <section class="panel">
+        <div class="cal-head">
+          <button class="btn ghost" id="calPrev" type="button" aria-label="Mes anterior">‹</button>
+          <div style="text-align:center"><b id="calTitulo"></b><div><span class="season" id="calTemp"></span></div></div>
+          <button class="btn ghost" id="calNext" type="button" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="cal" id="cal"></div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--rain)"></i>Temporada de lluvias</span>
+          <span><i class="sw" style="background:var(--dry)"></i>Temporada seca</span>
+          <span><i class="mk data"></i>Lecturas de la estación</span>
+          <span><i class="mk reg"></i>Registro manual</span>
+          <span><i class="sw" style="background:var(--accent);height:4px"></i>Ventana de siembra de <b id="calCultivo">tu cultivo</b></span>
+        </div>
+        <button class="btn ghost" id="btnRegCsv" type="button">Exportar registros (CSV)</button>
+      </section>
+      <section class="panel" id="diaPanel"></section>
+    </div>
+  </section>
+
+  <!-- QUÉ SEMBRAR -->
+  <section class="view" id="v-sembrar" hidden><section class="panel" id="panelSembrar"></section></section>
+
+  <!-- MI CULTIVO -->
+  <section class="view" id="v-micultivo" hidden>
+    <section class="panel">
+      <h2>¿Qué quieres cultivar?</h2>
+      <p class="lead">Escribe el cultivo y la página te dice qué condiciones necesita, si tus datos actuales las cumplen y cuándo es la temporada de siembra en el Cesar.</p>
+      <form class="search" id="formCultivo">
+        <input id="inCultivo" list="listaCultivos" placeholder="Ej.: maíz, yuca, patilla, tomate…" autocomplete="off" aria-label="Cultivo">
+        <datalist id="listaCultivos"></datalist>
+        <button class="btn" type="submit">Consultar</button>
+      </form>
+      <div class="chips" id="chipsCultivos"></div>
+    </section>
+    <section class="panel" id="panelMiCultivo"></section>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+"use strict";
+/* ================= CONFIGURACIÓN ================= */
+const SUELO_SATURADO = 615;
+const AGUA_UMBRAL = 100;
+const MAX_LECTURAS = 5000;
+
+/* ================= ESTADO ================= */
+let lecturas = [], registros = {}, propios = [];
+let modo = "nada", puerto = null, lector = null, escritor = null, cerrado = null;
+let demoTimer = null, demoT = null, autoTimer = null;
+let tab = "vivo", vista = "temp", rango = "24h";
+let calMes = new Date(); calMes.setDate(1);
+let diaSel = clave(new Date());
+let cultivoSel = null;
+
+const $ = id => document.getElementById(id);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt = (v,d=0) => v==null||isNaN(v) ? "--" : Number(v).toLocaleString("es-CO",{minimumFractionDigits:d,maximumFractionDigits:d});
+const hhmm = d => d.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"});
+const fechaLarga = d => d.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+const fechaCorta = d => d.toLocaleDateString("es-CO",{day:"numeric",month:"long"});
+function clave(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function desdeClave(k){ const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); }
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ================= VARIABLES ================= */
+const VARS = {
+  temp:{nombre:"Temperatura",corto:"Temperatura del aire",unidad:"°C",color:"--temp",dec:1,min:15,max:45,valor:r=>r.temp,
+        sub:v=> v>=35?"Muy caliente":v>=30?"Caliente":v>=22?"Templado":"Fresco"},
+  luz:{nombre:"Luz",corto:"Luz solar",unidad:"%",color:"--luz",dec:0,min:0,max:100,valor:r=>Math.min(100,r.luz/1023*100),
+        sub:v=> v>=75?"Sol fuerte":v>=40?"Sol medio":v>=10?"Nublado o sombra":"Noche"},
+  suelo:{nombre:"Humedad del suelo",corto:"Humedad del suelo",unidad:"%",color:"--suelo",dec:0,min:0,max:100,valor:r=>Math.min(100,r.suelo/SUELO_SATURADO*100),
+        sub:v=> v>=70?"Muy húmedo":v>=40?"Húmedo":v>=15?"Algo seco":"Seco"},
+  agua:{nombre:"Agua / mojado",corto:"Sensor de agua (lluvia y rocío)",unidad:"",color:"--agua",dec:0,min:0,max:1023,valor:r=>r.agua,
+        sub:v=> v>AGUA_UMBRAL?"Mojado":"Seco"}
+};
+
+/* ================= CULTIVOS (valores de referencia aproximados) =================
+   ventanas: [mesInicio, díaInicio, mesFin, díaFin] (meses 1-12, pueden cruzar el año) */
+const CULTIVOS = [
+ {n:"Maíz",a:["maiz","millo"],t:[18,35],o:[24,30],s:[40,80],luz:"sol",ll:[500,800],ph:[5.5,7.0],ciclo:110,seq:false,v:[[4,15,5,31],[9,1,10,15]],nota:"Siembre al inicio de las lluvias; muy sensible a la falta de agua en la floración."},
+ {n:"Fríjol caupí",a:["frijol","frijol caupi","cabecita negra","frijol cabecita negra","caupi"],t:[20,35],o:[25,32],s:[30,65],luz:"sol",ll:[300,500],ph:[5.5,7.0],ciclo:75,seq:true,v:[[5,1,6,15],[9,15,10,31]],nota:"Aporta nitrógeno al suelo; ideal después del maíz."},
+ {n:"Yuca",a:["yuca","mandioca"],t:[20,35],o:[25,30],s:[20,70],luz:"sol",ll:[1000,1500],ph:[4.5,7.0],ciclo:300,seq:true,v:[[4,1,5,31],[9,1,10,31]],nota:"Tolera la sequía una vez establecida; necesita lluvia los primeros 2 meses."},
+ {n:"Ahuyama",a:["ahuyama","zapallo","calabaza"],t:[18,35],o:[22,30],s:[40,75],luz:"sol",ll:[400,600],ph:[5.5,7.5],ciclo:110,seq:false,v:[[4,15,6,15],[9,1,10,15]],nota:"Cubre el suelo y reduce la evaporación."},
+ {n:"Guandul",a:["guandul","quinchoncho"],t:[18,38],o:[24,32],s:[20,70],luz:"sol",ll:[400,800],ph:[5.0,7.5],ciclo:180,seq:true,v:[[5,1,6,30],[9,1,10,31]],nota:"Recupera el suelo; muy resistente a la sequía."},
+ {n:"Ajonjolí",a:["ajonjoli","sesamo"],t:[22,38],o:[25,32],s:[20,55],luz:"sol",ll:[300,500],ph:[5.5,8.0],ciclo:110,seq:true,v:[[8,1,9,30]],nota:"Prefiere el final de las lluvias para cosechar en seco."},
+ {n:"Sorgo",a:["sorgo"],t:[20,38],o:[26,32],s:[20,65],luz:"sol",ll:[400,600],ph:[5.5,8.0],ciclo:110,seq:true,v:[[4,15,5,31],[8,15,9,30]],nota:"Alternativa al maíz cuando hay poca agua."},
+ {n:"Patilla",a:["patilla","sandia"],t:[20,35],o:[24,30],s:[35,60],luz:"sol",ll:[400,600],ph:[5.5,7.0],ciclo:90,seq:false,v:[[11,1,1,31]],nota:"Siembra al final de las lluvias con riego; la fruta sale más dulce con menos lluvia."},
+ {n:"Melón",a:["melon"],t:[20,35],o:[24,30],s:[35,60],luz:"sol",ll:[400,600],ph:[6.0,7.5],ciclo:80,seq:false,v:[[11,1,1,31]],nota:"Necesita riego y poca humedad en el aire para evitar hongos."},
+ {n:"Ají dulce",a:["aji","aji dulce","aji topito"],t:[18,32],o:[22,28],s:[45,75],luz:"semisombra",ll:[600,900],ph:[5.5,7.0],ciclo:120,seq:false,v:[[4,1,5,31],[9,1,10,15]],nota:"Riego constante; agradece algo de sombra en las horas de más calor."},
+ {n:"Tomate",a:["tomate"],t:[18,32],o:[21,27],s:[50,75],luz:"sol",ll:[400,600],ph:[5.8,7.0],ciclo:110,seq:false,v:[[10,15,12,15]],nota:"Mejor al final de las lluvias con riego; el exceso de lluvia trae hongos."},
+ {n:"Plátano",a:["platano","guineo","banano"],t:[22,35],o:[26,30],s:[50,80],luz:"sol",ll:[1500,2500],ph:[5.5,7.0],ciclo:365,seq:false,v:[[4,1,5,31],[9,1,10,31]],nota:"Necesita agua todo el año; sembrar al inicio de las lluvias."},
+ {n:"Arroz secano",a:["arroz"],t:[22,35],o:[25,30],s:[70,100],luz:"sol",ll:[800,1200],ph:[5.0,6.5],ciclo:120,seq:false,v:[[4,15,5,31]],nota:"Depende de lluvias abundantes y continuas."},
+ {n:"Algodón",a:["algodon"],t:[20,38],o:[25,32],s:[30,65],luz:"sol",ll:[500,700],ph:[5.5,8.0],ciclo:160,seq:true,v:[[7,15,8,31]],nota:"En el Cesar se siembra a mitad de año para cosechar en la época seca."},
+ {n:"Ñame",a:["name","ñame"],t:[22,35],o:[25,30],s:[40,70],luz:"sol",ll:[1000,1500],ph:[5.5,6.5],ciclo:270,seq:false,v:[[3,15,5,15]],nota:"Sembrar antes de las primeras lluvias fuertes."},
+ {n:"Pepino",a:["pepino","cohombro"],t:[18,32],o:[22,28],s:[50,75],luz:"sol",ll:[300,500],ph:[5.5,7.0],ciclo:60,seq:false,v:[[4,15,5,31],[9,1,10,31]],nota:"Ciclo corto; necesita tutorado y riego frecuente."},
+ {n:"Cilantro",a:["cilantro"],t:[15,30],o:[18,25],s:[50,75],luz:"semisombra",ll:[300,400],ph:[6.0,7.0],ciclo:50,seq:false,v:[[1,1,12,31]],nota:"Se puede sembrar todo el año con riego y algo de sombra."},
+ {n:"Papaya",a:["papaya","lechosa"],t:[22,35],o:[25,30],s:[40,70],luz:"sol",ll:[1200,2000],ph:[5.5,7.0],ciclo:300,seq:false,v:[[4,1,5,31],[9,1,10,31]],nota:"Primera cosecha a los 9-10 meses; no tolera encharcamiento."}
+];
+function todosCultivos(){ return CULTIVOS.concat(propios); }
+function buscarCultivo(txt){
+  const q = norm(txt); if(!q) return null;
+  return todosCultivos().find(c=> norm(c.n)===q || (c.a||[]).some(a=>norm(a)===q))
+      || todosCultivos().find(c=> norm(c.n).includes(q) || (c.a||[]).some(a=>norm(a).includes(q)));
+}
+
+/* ================= TEMPORADAS DEL CESAR (aproximado) ================= */
+function temporada(m){ // m 0-11
+  if(m===11||m<=2) return {k:"seca",n:"Temporada seca",llueve:false};
+  if(m<=5) return {k:"l1",n:"Primera temporada de lluvias",llueve:true};
+  if(m<=7) return {k:"vera",n:"Veranillo de mitad de año",llueve:false};
+  if(m<=9) return {k:"l2",n:"Segunda temporada de lluvias",llueve:true};
+  return {k:"fin",n:"Final de la segunda temporada de lluvias",llueve:true};
+}
+function enVentana(d,w){ const x=(d.getMonth()+1)*100+d.getDate(), s=w[0]*100+w[1], e=w[2]*100+w[3]; return s<=e ? (x>=s&&x<=e) : (x>=s||x<=e); }
+function enAlgunaVentana(d,c){ return c.v.some(w=>enVentana(d,w)); }
+function proximaVentana(desde,c){
+  const d0=new Date(desde.getFullYear(),desde.getMonth(),desde.getDate());
+  if(enAlgunaVentana(d0,c)){ let f=new Date(d0); while(enAlgunaVentana(new Date(f.getTime()+864e5),c) && (f-d0)<366*864e5) f=new Date(f.getTime()+864e5); return {ahora:true,inicio:d0,fin:f}; }
+  let i=new Date(d0); for(let k=0;k<367;k++){ i=new Date(i.getTime()+864e5); if(enAlgunaVentana(i,c)) break; }
+  let f=new Date(i); while(enAlgunaVentana(new Date(f.getTime()+864e5),c) && (f-i)<366*864e5) f=new Date(f.getTime()+864e5);
+  return {ahora:false,inicio:i,fin:f,dias:Math.round((i-d0)/864e5)};
+}
+const MESES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const txtVentana = w => (w[0]===1&&w[1]===1&&w[2]===12&&w[3]===31) ? "todo el año" : `${w[1]} ${MESES[w[0]-1]} – ${w[3]} ${MESES[w[2]-1]}`;
+
+/* ================= GUARDADO LOCAL ================= */
+function guardar(){ try{
+  localStorage.setItem("agrosol_lecturas",JSON.stringify(lecturas.slice(-MAX_LECTURAS)));
+  localStorage.setItem("agrosol_registros",JSON.stringify(registros));
+  localStorage.setItem("agrosol_propios",JSON.stringify(propios));
+  localStorage.setItem("agrosol_cultivo",cultivoSel?cultivoSel.n:"");
+}catch(e){} }
+function cargar(){ try{
+  lecturas=(JSON.parse(localStorage.getItem("agrosol_lecturas")||"[]")).map(r=>({...r,t:new Date(r.t)}));
+  registros=JSON.parse(localStorage.getItem("agrosol_registros")||"{}");
+  propios=JSON.parse(localStorage.getItem("agrosol_propios")||"[]");
+  const c=localStorage.getItem("agrosol_cultivo"); if(c) cultivoSel=buscarCultivo(c);
+}catch(e){ lecturas=[]; registros={}; propios=[]; } }
+
+/* ================= AVISOS ================= */
+let toastT=null;
+function aviso(t){ const e=$("toast"); e.textContent=t; e.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove("show"),2600); }
+function estado(cls,txt){ const e=$("estado"); e.className="status "+cls; $("estadoTxt").textContent=txt; }
+
+/* ================= USB ================= */
+async function conectar(){
+  if(!("serial" in navigator)){ $("avisoSerial").hidden=false; return; }
+  try{
+    puerto = await navigator.serial.requestPort({filters:[{usbVendorId:0x0d28}]});
+    await puerto.open({baudRate:115200});
+    detenerDemo();
+    if(lecturas.some(r=>r.demo)) lecturas=lecturas.filter(r=>!r.demo);
+    modo="usb"; estado("on","Conectado por USB · esperando datos…");
+    $("btnConectar").textContent="Desconectar";
+    escritor = puerto.writable.getWriter();
+    render();
+    const dec=new TextDecoderStream(); cerrado=puerto.readable.pipeTo(dec.writable).catch(()=>{});
+    lector=dec.readable.getReader();
+    let resto="";
+    while(true){
+      const {value,done}=await lector.read(); if(done) break;
+      resto+=value; const ls=resto.split(/\r?\n/); resto=ls.pop(); ls.forEach(procesarLinea);
+    }
+  }catch(e){
+    if(e && e.name==="NotFoundError") estado("","Sin conexión");
+    else estado("","No se pudo conectar: cierre MakeCode u otra pestaña que use la micro:bit");
+    modo="nada"; $("btnConectar").textContent="Conectar micro:bit";
+  }
+}
+async function desconectar(){
+  try{ if(escritor){ escritor.releaseLock(); } }catch(e){}
+  try{ if(lector) await lector.cancel(); }catch(e){}
+  try{ if(cerrado) await cerrado; }catch(e){}
+  try{ if(puerto) await puerto.close(); }catch(e){}
+  lector=escritor=puerto=null; modo="nada";
+  $("btnConectar").textContent="Conectar micro:bit"; estado("","Desconectado");
+}
+function procesarLinea(l){
+  const p=l.trim().split(",");
+  if(p[0]==="ACK"){ aviso("La estación recibió la orden. Esperando el dato…"); return; }
+  if(p[0]!=="AGRO"||p.length<6) return;
+  const n=p.slice(1).map(Number); if(n.slice(0,5).some(isNaN)) return;
+  agregar({t:new Date(),id:n[0],temp:n[1],luz:n[2],suelo:n[3],agua:n[4],senal:isNaN(n[5])?null:n[5]});
+  estado("on","Conectado · último dato "+hhmm(new Date()));
+}
+async function pedirDatos(){
+  if(modo==="usb" && escritor){
+    try{ await escritor.write(new TextEncoder().encode("MEDIR\n")); aviso("Pidiendo datos a la estación…"); }catch(e){ aviso("No se pudo enviar la orden."); }
+  }else if(modo==="demo"){ nuevoDemo(); aviso("Dato de demostración recibido."); }
+  else aviso("Conecte la micro:bit o active la demostración.");
+}
+function programarAuto(){
+  clearInterval(autoTimer); const s=+$("auto").value;
+  if(s>0) autoTimer=setInterval(pedirDatos,s*1000);
+}
+function agregar(r){
+  lecturas.push(r); if(lecturas.length>MAX_LECTURAS) lecturas.shift();
+  guardar(); render(true);
+}
+
+/* ================= DEMOSTRACIÓN ================= */
+function lecturaDemo(t,prev){
+  const h=t.getHours()+t.getMinutes()/60, sol=Math.max(0,Math.sin((h-6)/12*Math.PI));
+  const temp=Math.round(25+10*sol+(Math.random()-.5)*1.2);
+  const luz=Math.round(Math.min(1023,sol*1000*(0.85+Math.random()*0.15)));
+  let suelo=prev?prev.suelo-3-Math.random()*3:380, agua=0;
+  const llueve=(h>15&&h<17.5&&Math.random()<0.7)||Math.random()<0.02;
+  if(llueve){ suelo+=25+Math.random()*30; agua=350+Math.random()*150; }
+  else if(prev&&prev.agua>AGUA_UMBRAL) agua=Math.max(0,prev.agua-120);
+  if(h<6.5&&h>4) agua=Math.max(agua,180);
+  suelo=Math.max(40,Math.min(610,suelo));
+  return {t,id:(prev?prev.id:0)+1,temp,luz,suelo:Math.round(suelo),agua:Math.round(agua),senal:-60-Math.round(Math.random()*15),demo:true};
+}
+function nuevoDemo(){ demoT=new Date(demoT.getTime()+20*60e3); agregar(lecturaDemo(demoT,lecturas[lecturas.length-1])); }
+function iniciarDemo(){
+  if(modo==="usb") return;
+  lecturas=lecturas.filter(r=>r.demo);
+  if(!lecturas.length){
+    const ahora=new Date(), t0=new Date(ahora.getTime()-7*24*3600e3); let prev=null;
+    for(let t=t0.getTime();t<=ahora.getTime();t+=60*60e3){ prev=lecturaDemo(new Date(t),prev); lecturas.push(prev); }
+  }
+  demoT=lecturas[lecturas.length-1].t;
+  modo="demo"; estado("demo","Datos de demostración (no son reales)");
+  $("btnDemo").textContent="Detener demostración";
+  render(); demoTimer=setInterval(nuevoDemo,4000);
+}
+function detenerDemo(){
+  if(demoTimer){ clearInterval(demoTimer); demoTimer=null; }
+  if(modo==="demo"){ modo="nada"; estado("","Demostración detenida"); }
+  $("btnDemo").textContent="Modo demostración";
+}
+
+/* ================= UTILIDADES DE DATOS ================= */
+function filtrarRango(arr){
+  if(!arr.length) return arr;
+  const fin=arr[arr.length-1].t.getTime();
+  const ms = rango==="24h"?864e5 : rango==="7d"?7*864e5 : Infinity;
+  return arr.filter(r=>fin-r.t.getTime()<=ms);
+}
+function serie(k,arr){ return (arr||lecturas).map(r=>({t:r.t,v:VARS[k].valor(r)})); }
+function stats(v){ if(!v.length) return null; const s=v.reduce((a,b)=>a+b,0); return {min:Math.min(...v),max:Math.max(...v),prom:s/v.length}; }
+function ticks(min,max,n){ const span=(max-min)||1,raw=span/n,mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const st=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=raw); const a=Math.floor(min/st)*st,b=Math.ceil(max/st)*st,o=[];
+  for(let v=a;v<=b+st/2;v+=st) o.push(+v.toFixed(6)); return o; }
+function lecturasDia(k){ return lecturas.filter(r=>clave(r.t)===k); }
+function condicionesActuales(){
+  const ult=lecturas.slice(-24); if(!ult.length) return null;
+  const dia=ult.filter(r=>r.luz>100);
+  return { n:ult.length,
+    temp: stats((dia.length?dia:ult).map(r=>VARS.temp.valor(r))).prom,
+    suelo: stats(ult.map(r=>VARS.suelo.valor(r))).prom,
+    luz: dia.length? stats(dia.map(r=>VARS.luz.valor(r))).prom : null,
+    mojado: ult.filter(r=>r.agua>AGUA_UMBRAL).length/ult.length,
+    fecha: ult[ult.length-1].t };
+}
+function ultimoPH(){ const ks=Object.keys(registros).filter(k=>registros[k].ph!=="" && registros[k].ph!=null).sort(); return ks.length? +registros[ks[ks.length-1]].ph : null; }
+function lluviaMes(d){ let s=0,n=0; Object.keys(registros).forEach(k=>{ const x=desdeClave(k); if(x.getFullYear()===d.getFullYear()&&x.getMonth()===d.getMonth()&&registros[k].lluvia!==""&&registros[k].lluvia!=null){ s+=+registros[k].lluvia; n++; } }); return n?s:null; }
+
+/* ================= GRÁFICAS ================= */
+function svgOpen(w,h){ return `<svg viewBox="0 0 ${w} ${h}" role="img">`; }
+function graficaLinea(box,k,arr){
+  const V=VARS[k], pts=serie(k,arr).slice(-400), plot=box.querySelector(".plot");
+  if(pts.length<2){ plot.innerHTML='<p class="empty">Se necesitan al menos 2 lecturas.</p>'; return; }
+  const W=480,H=220,PL=40,PR=12,PT=12,PB=26,col=css(V.color);
+  const vals=pts.map(p=>p.v); let mn=Math.min(...vals),mx=Math.max(...vals); if(mx-mn<1){mn-=1;mx+=1;}
+  const tk=ticks(mn,mx,4); mn=tk[0]; mx=tk[tk.length-1];
+  const t0=pts[0].t.getTime(), t1=pts[pts.length-1].t.getTime();
+  const larga=(t1-t0)>36*3600e3;
+  const sx=t=>PL+((t-t0)/((t1-t0)||1))*(W-PL-PR), sy=v=>PT+(1-(v-mn)/((mx-mn)||1))*(H-PT-PB);
+  const lab=t=>larga? new Date(t).toLocaleDateString("es-CO",{day:"numeric",month:"short"}) : hhmm(new Date(t));
+  let g=svgOpen(W,H);
+  tk.forEach(t=>{ g+=`<line x1="${PL}" x2="${W-PR}" y1="${sy(t)}" y2="${sy(t)}" stroke="${css('--grid')}"/><text x="${PL-6}" y="${sy(t)+4}" text-anchor="end">${fmt(t,t%1?1:0)}</text>`; });
+  [0,.5,1].forEach(f=>{ const t=t0+(t1-t0)*f; g+=`<text x="${sx(t)}" y="${H-7}" text-anchor="${f===0?'start':f===1?'end':'middle'}">${lab(t)}</text>`; });
+  let d=""; pts.forEach((p,i)=>{ d+=(i?"L":"M")+sx(p.t.getTime()).toFixed(1)+","+sy(p.v).toFixed(1); });
+  if(k==="agua") g+=`<line x1="${PL}" x2="${W-PR}" y1="${sy(AGUA_UMBRAL)}" y2="${sy(AGUA_UMBRAL)}" stroke="${css('--muted')}" stroke-dasharray="4 4"/><text x="${W-PR}" y="${sy(AGUA_UMBRAL)-5}" text-anchor="end">umbral mojado</text>`;
+  g+=`<path d="${d}L${sx(t1)},${H-PB}L${sx(t0)},${H-PB}Z" fill="${col}" fill-opacity=".12"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>`;
+  g+=`<circle cx="${sx(t1)}" cy="${sy(pts[pts.length-1].v)}" r="4.5" fill="${col}" stroke="${css('--bg')}" stroke-width="2"/>`;
+  g+=`<line class="hx" y1="${PT}" y2="${H-PB}" stroke="${css('--muted')}" stroke-dasharray="3 3" opacity="0"/><circle class="hd" r="4.5" fill="${col}" opacity="0"/>`;
+  g+=`<rect class="hit" x="${PL}" y="${PT}" width="${W-PL-PR}" height="${H-PT-PB}" fill="transparent"/></svg>`;
+  plot.innerHTML=g;
+  const svg=plot.querySelector("svg"),hx=svg.querySelector(".hx"),hd=svg.querySelector(".hd"),tip=box.querySelector(".tip");
+  const mover=ev=>{ const r=svg.getBoundingClientRect(),x=(ev.clientX-r.left)*W/r.width; let b=0,bd=1e9;
+    pts.forEach((p,i)=>{ const dd=Math.abs(sx(p.t.getTime())-x); if(dd<bd){bd=dd;b=i;} });
+    const p=pts[b],X=sx(p.t.getTime()),Y=sy(p.v);
+    hx.setAttribute("x1",X);hx.setAttribute("x2",X);hx.setAttribute("opacity",1);hd.setAttribute("cx",X);hd.setAttribute("cy",Y);hd.setAttribute("opacity",1);
+    tip.hidden=false; tip.textContent=`${p.t.toLocaleString("es-CO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${fmt(p.v,V.dec)} ${V.unidad}`;
+    tip.style.left=(X*r.width/W+svg.offsetLeft)+"px"; tip.style.top=(Y*r.height/H+svg.offsetTop)+"px"; };
+  const hit=svg.querySelector(".hit"); hit.addEventListener("pointermove",mover); hit.addEventListener("pointerdown",mover);
+  hit.addEventListener("pointerleave",()=>{ tip.hidden=true; hx.setAttribute("opacity",0); hd.setAttribute("opacity",0); });
+}
+function graficaMedidor(box,k){
+  const V=VARS[k], plot=box.querySelector(".plot"), u=lecturas[lecturas.length-1];
+  if(!u){ plot.innerHTML='<p class="empty">Sin datos.</p>'; return; }
+  const v=V.valor(u), f=Math.max(0,Math.min(1,(v-V.min)/(V.max-V.min)));
+  const W=300,H=168,cx=150,cy=142,R=108,col=css(V.color);
+  const pt=a=>[cx+R*Math.cos(a),cy-R*Math.sin(a)];
+  const arc=(a0,a1)=>{ const [x0,y0]=pt(a0),[x1,y1]=pt(a1); return `M${x0},${y0} A${R},${R} 0 0 1 ${x1},${y1}`; };
+  let g=svgOpen(W,H)+`<path d="${arc(Math.PI,0)}" fill="none" stroke="${css('--surface-2')}" stroke-width="20" stroke-linecap="round"/>`;
+  if(f>0.005) g+=`<path d="${arc(Math.PI,Math.PI-f*Math.PI)}" fill="none" stroke="${col}" stroke-width="20" stroke-linecap="round"/>`;
+  g+=`<text x="${cx}" y="${cy-18}" text-anchor="middle" style="font-size:32px;fill:${css('--ink')};font-weight:600">${k==="agua"?V.sub(v):fmt(v,V.dec)+(V.unidad?" "+V.unidad:"")}</text>`;
+  g+=`<text x="${cx}" y="${cy+6}" text-anchor="middle" style="font-size:13px">${k==="agua"?"Lectura "+fmt(v):V.sub(v)}</text>`;
+  g+=`<text x="${cx-R}" y="${cy+22}" text-anchor="middle">${fmt(V.min)}</text><text x="${cx+R}" y="${cy+22}" text-anchor="middle">${fmt(V.max)}</text></svg>`;
+  plot.innerHTML=g;
+}
+function graficaResumen(box,k,arr){
+  const V=VARS[k], plot=box.querySelector(".plot");
+  // promedio por día: barras
+  const dias={}; (arr||lecturas).forEach(r=>{ const c=clave(r.t); (dias[c]=dias[c]||[]).push(V.valor(r)); });
+  const ks=Object.keys(dias).sort().slice(-7);
+  if(!ks.length){ plot.innerHTML='<p class="empty">Sin datos.</p>'; return; }
+  const W=360,H=200,PL=34,PB=30,PT=20,col=css(V.color);
+  const st=ks.map(c=>stats(dias[c])); const top=Math.max(...st.map(s=>s.max)); const bot=Math.min(0,...st.map(s=>s.min));
+  const bw=Math.min(36,(W-PL-10)/ks.length-10), step=(W-PL-10)/ks.length;
+  const sy=v=>PT+(1-(v-bot)/((top-bot)||1))*(H-PT-PB);
+  let g=svgOpen(W,H)+`<line x1="${PL}" x2="${W-10}" y1="${H-PB}" y2="${H-PB}" stroke="${css('--grid')}"/>`;
+  ks.forEach((c,i)=>{ const s=st[i], x=PL+i*step+(step-bw)/2, y=sy(s.prom);
+    g+=`<line x1="${x+bw/2}" x2="${x+bw/2}" y1="${sy(s.max)}" y2="${sy(s.min)}" stroke="${css('--muted')}" stroke-width="1.5"/>`;
+    g+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(2,H-PB-y)}" rx="4" fill="${col}" fill-opacity=".85"><title>${fechaCorta(desdeClave(c))}: prom ${fmt(s.prom,V.dec)} · mín ${fmt(s.min,V.dec)} · máx ${fmt(s.max,V.dec)}</title></rect>`;
+    if(ks.length<=7) g+=`<text x="${x+bw/2}" y="${y-5}" text-anchor="middle" style="fill:${css('--ink')}">${fmt(s.prom,k==="temp"?1:0)}</text>`;
+    g+=`<text x="${x+bw/2}" y="${H-10}" text-anchor="middle">${desdeClave(c).getDate()}/${desdeClave(c).getMonth()+1}</text>`; });
+  plot.innerHTML=g+"</svg>";
+}
+function graficaDistribucion(box,k,arr){
+  const V=VARS[k], vals=serie(k,arr).map(p=>p.v), plot=box.querySelector(".plot");
+  if(!vals.length){ plot.innerHTML='<p class="empty">Sin datos.</p>'; return; }
+  const col=css(V.color);
+  if(k==="agua"){
+    const moj=vals.filter(v=>v>AGUA_UMBRAL).length, pm=moj/vals.length, W=360,H=140;
+    let g=svgOpen(W,H)+`<rect x="20" y="40" width="${(W-40)*pm}" height="34" rx="4" fill="${col}"/>`;
+    g+=`<rect x="${20+(W-40)*pm+(pm>0&&pm<1?2:0)}" y="40" width="${Math.max(0,(W-40)*(1-pm)-(pm>0&&pm<1?2:0))}" height="34" rx="4" fill="${css('--surface-2')}"/>`;
+    g+=`<text x="20" y="28" style="fill:${css('--ink')};font-size:13px">Mojado ${fmt(pm*100)} %</text><text x="${W-20}" y="28" text-anchor="end" style="fill:${css('--ink')};font-size:13px">Seco ${fmt((1-pm)*100)} %</text>`;
+    g+=`<text x="20" y="100">${moj} de ${vals.length} lecturas con el sensor mojado</text><text x="20" y="120">Hojas mojadas mucho tiempo = riesgo de hongos</text></svg>`;
+    plot.innerHTML=g; return;
+  }
+  const B=8,mn=Math.min(...vals),mx=Math.max(...vals),w=((mx-mn)||1)/B,cnt=new Array(B).fill(0);
+  vals.forEach(v=>cnt[Math.min(B-1,Math.floor((v-mn)/w))]++);
+  const W=360,H=190,PL=30,PB=30,PT=12,top=Math.max(...cnt),bw=(W-PL-10)/B;
+  let g=svgOpen(W,H);
+  [0,top].forEach(t=>{ const y=H-PB-(t/top)*(H-PB-PT); g+=`<line x1="${PL}" x2="${W-10}" y1="${y}" y2="${y}" stroke="${css('--grid')}"/><text x="${PL-6}" y="${y+4}" text-anchor="end">${t}</text>`; });
+  cnt.forEach((c,i)=>{ const h=(c/top)*(H-PB-PT),x=PL+i*bw+1,y=H-PB-h; if(c) g+=`<rect x="${x}" y="${y}" width="${bw-2}" height="${h}" rx="2" fill="${col}"><title>${fmt(mn+i*w,V.dec)}–${fmt(mn+(i+1)*w,V.dec)} ${V.unidad}: ${c} lecturas</title></rect>`; });
+  g+=`<text x="${PL}" y="${H-10}">${fmt(mn,V.dec)} ${V.unidad}</text><text x="${W-10}" y="${H-10}" text-anchor="end">${fmt(mx,V.dec)} ${V.unidad}</text></svg>`;
+  plot.innerHTML=g;
+}
+function sparkline(k){
+  const pts=serie(k).slice(-30); if(pts.length<2) return "";
+  const vals=pts.map(p=>p.v), mn=Math.min(...vals), mx=Math.max(...vals), W=120,H=26;
+  const d=pts.map((p,i)=>(i?"L":"M")+(i/(pts.length-1)*W).toFixed(1)+","+(H-2-((p.v-mn)/((mx-mn)||1))*(H-4)).toFixed(1)).join("");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="none" stroke="${css(VARS[k].color)}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* ================= VISTA: EN VIVO ================= */
+function renderTiles(flash){
+  const u=lecturas[lecturas.length-1];
+  $("tiles").innerHTML=Object.keys(VARS).map(k=>{ const V=VARS[k], v=u?V.valor(u):null;
+    const txt=k==="agua"?(u?V.sub(v):"--"):(u?fmt(v,V.dec)+(V.unidad?" "+V.unidad:""):"--");
+    return `<button type="button" class="tile${flash?" flash":""}" data-k="${k}" aria-pressed="${vista===k}" style="--c:var(${V.color})">
+      <span class="lab">${V.nombre}</span><span class="val">${txt}</span><span class="sub">${u?(k==="agua"?"Lectura "+fmt(v):V.sub(v)):"Sin datos"}</span>${sparkline(k)}</button>`; }).join("");
+  $("tiles").querySelectorAll(".tile").forEach(b=>b.addEventListener("click",()=>{ vista=b.dataset.k; renderVivo(); }));
+}
+function renderPanelVar(){
+  const V=VARS[vista], arr=filtrarRango(lecturas);
+  $("panelVar").innerHTML=`
+    <div class="row"><div><h2>${V.corto}</h2><p class="lead">${arr.length} lecturas en el periodo${modo==="demo"?" · datos de demostración":""}.</p></div>
+      <div class="seg" role="group" aria-label="Periodo">${[["24h","24 horas"],["7d","7 días"],["todo","Todo"]].map(([k,t])=>`<button type="button" data-r="${k}" aria-pressed="${rango===k}">${t}</button>`).join("")}</div></div>
+    <div class="charts">
+      <div class="chart" id="g1"><h3>Evolución en el tiempo</h3><p class="cap">Pase el mouse por la línea para ver cada lectura.</p><div class="plot"></div><div class="tip" hidden></div></div>
+      <div class="chart" id="g2"><h3>Valor actual</h3><p class="cap">Última lectura recibida.</p><div class="plot"></div></div>
+      <div class="chart" id="g3"><h3>Promedio por día</h3><p class="cap">Barra = promedio; línea = mínimo a máximo (últimos 7 días del periodo).</p><div class="plot"></div></div>
+      <div class="chart" id="g4"><h3>${vista==="agua"?"Tiempo mojado vs. seco":"Distribución de valores"}</h3><p class="cap">${vista==="agua"?"Qué parte del tiempo estuvo mojado el sensor.":"Cuántas lecturas cayeron en cada rango."}</p><div class="plot"></div></div>
+    </div>`;
+  $("panelVar").querySelectorAll("[data-r]").forEach(b=>b.addEventListener("click",()=>{ rango=b.dataset.r; renderPanelVar(); }));
+  graficaLinea($("g1"),vista,arr); graficaMedidor($("g2"),vista); graficaResumen($("g3"),vista,arr); graficaDistribucion($("g4"),vista,arr);
+}
+function renderTabla(){
+  const f=lecturas.slice(-8).reverse();
+  $("tabla").innerHTML=`<thead><tr><th>Fecha y hora</th><th>N.º</th><th>Temp. (°C)</th><th>Luz (%)</th><th>Suelo (%)</th><th>Agua</th><th>Señal</th></tr></thead><tbody>${
+    f.length?f.map(r=>`<tr><td>${r.t.toLocaleString("es-CO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</td><td>${r.id}</td><td>${fmt(r.temp,0)}</td><td>${fmt(VARS.luz.valor(r))}</td><td>${fmt(VARS.suelo.valor(r))}</td><td>${r.agua>AGUA_UMBRAL?"Mojado":"Seco"} (${r.agua})</td><td>${r.senal==null?"--":r.senal}</td></tr>`).join("")
+    :'<tr><td colspan="7" class="txt">Aún no hay lecturas.</td></tr>'}</tbody>`;
+}
+function renderVivo(flash){ renderTiles(flash); renderPanelVar(); renderTabla(); }
+
+/* ================= VISTA: CALENDARIO ================= */
+function renderCalendario(){
+  const y=calMes.getFullYear(), m=calMes.getMonth(), tmp=temporada(m);
+  $("calTitulo").textContent=calMes.toLocaleDateString("es-CO",{month:"long",year:"numeric"});
+  $("calTemp").textContent=tmp.n;
+  $("calCultivo").textContent=cultivoSel?cultivoSel.n:"tu cultivo (elígelo en «Mi cultivo»)";
+  const primero=new Date(y,m,1), offset=(primero.getDay()+6)%7, inicio=new Date(y,m,1-offset), hoy=clave(new Date());
+  const conDatos=new Set(lecturas.map(r=>clave(r.t)));
+  let h=["L","M","M","J","V","S","D"].map(d=>`<div class="dn">${d}</div>`).join("");
+  for(let i=0;i<42;i++){
+    const d=new Date(inicio.getFullYear(),inicio.getMonth(),inicio.getDate()+i), k=clave(d), t=temporada(d.getMonth());
+    const cls=["day", d.getMonth()!==m?"out":"", t.llueve?"rain":"dry", k===hoy?"today":""].join(" ");
+    const win = cultivoSel && enAlgunaVentana(d,cultivoSel);
+    h+=`<button type="button" class="${cls}" data-k="${k}" aria-pressed="${k===diaSel}" aria-label="${fechaLarga(d)}${conDatos.has(k)?", con lecturas":""}${registros[k]?", con registro":""}${win?", ventana de siembra":""}">
+      <span class="n">${d.getDate()}</span><span class="marks">${conDatos.has(k)?'<i class="mk data"></i>':""}${registros[k]?'<i class="mk reg"></i>':""}</span>${win?'<i class="win"></i>':""}</button>`;
+    if(i>=34 && d.getMonth()!==m && (i+1)%7===0) break;
+  }
+  $("cal").innerHTML=h;
+  $("cal").querySelectorAll(".day").forEach(b=>b.addEventListener("click",()=>{ diaSel=b.dataset.k; const d=desdeClave(diaSel);
+    if(d.getMonth()!==calMes.getMonth()){ calMes=new Date(d.getFullYear(),d.getMonth(),1); } renderCalendario(); }));
+  renderDia();
+}
+function renderDia(){
+  const d=desdeClave(diaSel), ls=lecturasDia(diaSel), r=registros[diaSel]||{}, t=temporada(d.getMonth());
+  let resumen;
+  if(ls.length){
+    const T=stats(ls.map(x=>x.temp)), S=stats(ls.map(x=>VARS.suelo.valor(x))), dia=ls.filter(x=>x.luz>100);
+    const L=dia.length?stats(dia.map(x=>VARS.luz.valor(x))).prom:null, M=ls.filter(x=>x.agua>AGUA_UMBRAL).length/ls.length;
+    resumen=`<div class="conds">
+      <div class="cond"><div class="lab">Temperatura</div><div class="v">${fmt(T.min,0)}–${fmt(T.max,0)} °C</div><div class="small">prom. ${fmt(T.prom,1)} °C</div></div>
+      <div class="cond"><div class="lab">Suelo</div><div class="v">${fmt(S.prom)} %</div><div class="small">${fmt(S.min)}–${fmt(S.max)} %</div></div>
+      <div class="cond"><div class="lab">Luz de día</div><div class="v">${L==null?"--":fmt(L)+" %"}</div></div>
+      <div class="cond"><div class="lab">Tiempo mojado</div><div class="v">${fmt(M*100)} %</div><div class="small">${ls.length} lecturas</div></div></div>`;
+  } else resumen='<p class="small">La estación no registró lecturas este día.</p>';
+  const cs=cultivoSel&&enAlgunaVentana(d,cultivoSel)?`<div class="notice" style="border-left-color:var(--accent)">Este día está dentro de la ventana de siembra de <b>${esc(cultivoSel.n)}</b>.</div>`:"";
+  const opt=(arr,v)=>arr.map(o=>`<option${o===v?" selected":""}>${o}</option>`).join("");
+  $("diaPanel").innerHTML=`
+    <h2 style="text-transform:capitalize">${fechaLarga(d)}</h2>
+    <p class="lead">${t.n}.</p>${cs}
+    <h3>Datos de la estación</h3>${resumen}
+    <h3>Registro manual del día</h3>
+    <p class="small">Anote lo que la estación no mide: la lluvia del pluviómetro manual, el pH, los nutrientes y las labores del cultivo.</p>
+    <form class="reg" id="formReg">
+      <label>Lluvia del día (mm)<input type="number" step="0.1" min="0" id="rLluvia" value="${r.lluvia??""}"></label>
+      <label>pH del suelo<input type="number" step="0.1" min="3" max="10" id="rPh" value="${r.ph??""}"></label>
+      <label>Nitrógeno (N)<select id="rN">${opt(["","Bajo","Medio","Alto"],r.n||"")}</select></label>
+      <label>Fósforo (P)<select id="rP">${opt(["","Bajo","Medio","Alto"],r.p||"")}</select></label>
+      <label>Potasio (K)<select id="rK">${opt(["","Bajo","Medio","Alto"],r.k||"")}</select></label>
+      <label>Actividad<select id="rAct">${opt(["","Siembra","Riego","Fertilización","Control de plagas","Cosecha","Otra"],r.act||"")}</select></label>
+      <label class="full">Cultivo<input id="rCult" list="listaCultivos" value="${esc(r.cult||(cultivoSel?cultivoSel.n:""))}"></label>
+      <label class="full">Observaciones<textarea id="rObs" rows="3">${esc(r.obs||"")}</textarea></label>
+      <div class="full row"><button class="btn" type="submit">Guardar registro</button>${registros[diaSel]?'<button class="btn ghost" type="button" id="rBorrar">Borrar registro</button>':""}</div>
+    </form>`;
+  $("formReg").addEventListener("submit",e=>{ e.preventDefault();
+    const nuevo={lluvia:$("rLluvia").value,ph:$("rPh").value,n:$("rN").value,p:$("rP").value,k:$("rK").value,act:$("rAct").value,cult:$("rCult").value.trim(),obs:$("rObs").value.trim()};
+    if(Object.values(nuevo).every(v=>v==="")){ aviso("Escriba al menos un dato para guardar."); return; }
+    registros[diaSel]=nuevo; guardar(); aviso("Registro guardado para el "+fechaCorta(d)+"."); renderCalendario(); });
+  const b=$("rBorrar"); if(b) b.addEventListener("click",()=>{ delete registros[diaSel]; guardar(); aviso("Registro borrado."); renderCalendario(); });
+}
+
+/* ================= VISTA: QUÉ SEMBRAR ================= */
+function ajuste(v,a,b,margen){ if(v>=a&&v<=b) return 1; const d=v<a?a-v:v-b; return d<=margen?0.5:0; }
+function evaluar(c,C){
+  const fecha=C.fecha, tmp=temporada(fecha.getMonth());
+  const ft=ajuste(C.temp,c.t[0],c.t[1],3);
+  let fs=ajuste(C.suelo,c.s[0],c.s[1],10); if(fs<1&&C.suelo<c.s[0]&&c.seq) fs=Math.max(fs,0.6);
+  const fe=enAlgunaVentana(fecha,c)?1:(c.seq?0.5:0.25);
+  let p=0.35*ft+0.35*fs+0.3*fe; if(!(ft===1&&fs>=0.6&&fe===1)) p=Math.min(p,0.74);
+  const r=[ ft===1?`temperatura adecuada (${c.t[0]}–${c.t[1]} °C)`:`temperatura fuera de rango (${c.t[0]}–${c.t[1]} °C)`,
+            fs>=1?"humedad del suelo adecuada":C.suelo<c.s[0]?(c.seq?"suelo algo seco, pero lo tolera":"suelo muy seco: necesita riego"):"suelo demasiado húmedo",
+            fe===1?"estamos en su ventana de siembra":"no es su ventana de siembra" ];
+  return {...c,p,r,tmp};
+}
+function renderSembrar(){
+  const P=$("panelSembrar"), C=condicionesActuales();
+  if(!C){ P.innerHTML='<h2>¿Qué puedo sembrar?</h2><p class="empty">Conecte la estación o active el modo demostración para recibir datos.</p>'; return; }
+  const tmp=temporada(C.fecha.getMonth());
+  let ver,cls; if(tmp.llueve&&C.suelo>=40){ver="Buena época para sembrar";cls="good";}
+  else if(tmp.llueve||C.suelo>=25){ver="Época aceptable: siembre cultivos tolerantes o con riego";cls="warn";}
+  else {ver="No es buena época: suelo seco y temporada seca";cls="bad";}
+  const ev=todosCultivos().map(c=>evaluar(c,C)).sort((a,b)=>b.p-a.p);
+  const rec=ev.filter(c=>c.p>=0.75), pos=ev.filter(c=>c.p>=0.5&&c.p<0.75), esp=ev.filter(c=>c.p<0.5);
+  const fila=c=>{ const pc=Math.round(c.p*100), col=c.p>=0.75?css('--good'):c.p>=0.5?css('--warn'):css('--bad');
+    return `<div class="crop"><div><div class="name">${esc(c.n)}</div><div class="why">Ciclo ≈ ${c.ciclo} días</div></div>
+      <div><div class="why">${c.r.join(" · ")}. ${esc(c.nota||"")}</div><div class="meter"><i style="width:${pc}%;background:${col}"></i></div></div>
+      <button class="btn ghost" type="button" data-ver="${esc(c.n)}">Ver detalle</button></div>`; };
+  const avisos=[]; if(C.mojado>0.4) avisos.push("Las hojas han estado mojadas mucho tiempo: vigile hongos.");
+  if(C.luz!=null&&C.luz<35) avisos.push("Poca luz durante el día: revise sombras o días nublados.");
+  if(C.temp>=34) avisos.push("Calor fuerte: riegue temprano en la mañana o al final de la tarde.");
+  const ph=ultimoPH(); if(ph!=null&&ph<5.5) avisos.push(`El último pH registrado (${fmt(ph,1)}) es ácido: prefiera yuca, guandul o arroz, o encale el suelo.`);
+  P.innerHTML=`<h2>¿Qué puedo sembrar con los datos de hoy?</h2>
+    <p class="lead">Con las últimas ${C.n} lecturas de la estación, la temporada del año en el Cesar y su registro de pH.</p>
+    <div class="verdict"><span class="badge ${cls}">${cls==="good"?"Sí":cls==="warn"?"Con cuidado":"No"}</span><div><b>${ver}</b><span class="small">${tmp.n} · ${C.fecha.toLocaleDateString("es-CO",{day:"numeric",month:"long"})}</span></div></div>
+    <div class="conds">
+      <div class="cond"><div class="lab">Temperatura de día</div><div class="v">${fmt(C.temp,1)} °C</div></div>
+      <div class="cond"><div class="lab">Humedad del suelo</div><div class="v">${fmt(C.suelo)} %</div></div>
+      <div class="cond"><div class="lab">Luz de día</div><div class="v">${C.luz==null?"--":fmt(C.luz)+" %"}</div></div>
+      <div class="cond"><div class="lab">Tiempo mojado</div><div class="v">${fmt(C.mojado*100)} %</div></div>
+      <div class="cond"><div class="lab">pH (registro)</div><div class="v">${ph==null?"--":fmt(ph,1)}</div></div></div>
+    ${avisos.length?`<div class="notice">${avisos.join("<br>")}</div>`:""}
+    <h3>Recomendado sembrar ahora</h3><div class="crops">${rec.length?rec.map(fila).join(""):'<p class="small">Ningún cultivo cumple todas las condiciones hoy. Revise "Posible con cuidados".</p>'}</div>
+    ${pos.length?`<h3>Posible con cuidados (riego o manejo)</h3><div class="crops">${pos.map(fila).join("")}</div>`:""}
+    ${esp.length?`<h3>Mejor esperar a su temporada</h3><p class="small">${esp.map(c=>esc(c.n)).join(", ")}.</p>`:""}
+    <p class="small"><b>Rotación sugerida:</b> maíz o sorgo → fríjol caupí o guandul (devuelven nitrógeno) → descanso con cobertura o yuca en la época seca.</p>
+    <p class="small">Recomendación orientativa con reglas sencillas y valores de referencia aproximados. Contrástela con NASA POWER, el análisis de suelo y la asesoría de la UMATA o un agrónomo.</p>`;
+  P.querySelectorAll("[data-ver]").forEach(b=>b.addEventListener("click",()=>{ elegirCultivo(b.dataset.ver); irA("micultivo"); }));
+}
+
+/* ================= VISTA: MI CULTIVO ================= */
+function elegirCultivo(nombre){ cultivoSel=buscarCultivo(nombre); $("inCultivo").value=nombre; guardar(); renderMiCultivo(nombre); }
+function estadoValor(v,a,b){ if(v==null||isNaN(v)) return ['<span class="small">Sin dato</span>',null];
+  if(v<a) return ['<span class="low">Bajo</span>',0]; if(v>b) return ['<span class="high">Alto</span>',0]; return ['<span class="ok">Cumple</span>',1]; }
+function renderMiCultivo(consulta){
+  const P=$("panelMiCultivo");
+  if(!consulta && !cultivoSel){ P.innerHTML='<p class="empty">Escriba un cultivo arriba o toque uno de la lista.</p>'; return; }
+  const c = consulta? buscarCultivo(consulta) : cultivoSel;
+  if(!c){ renderNuevoCultivo(consulta); return; }
+  cultivoSel=c; guardar();
+  const hoy=new Date(), nv=proximaVentana(hoy,c), C=condicionesActuales(), ph=ultimoPH();
+  const luzReq = c.luz==="sol"?[60,100]:[30,75];
+  const filas=[
+    ["Temperatura del aire",`${c.t[0]}–${c.t[1]} °C (óptimo ${c.o[0]}–${c.o[1]} °C)`, C?fmt(C.temp,1)+" °C":"--", estadoValor(C?C.temp:null,c.t[0],c.t[1])],
+    ["Humedad del suelo",`${c.s[0]}–${c.s[1]} %`, C?fmt(C.suelo)+" %":"--", estadoValor(C?C.suelo:null,c.s[0],c.s[1])],
+    ["Luz",c.luz==="sol"?"Pleno sol (≥ 60 % de día)":"Semisombra (30–75 % de día)", C&&C.luz!=null?fmt(C.luz)+" %":"--", estadoValor(C?C.luz:null,luzReq[0],luzReq[1])],
+    ["pH del suelo",`${fmt(c.ph[0],1)}–${fmt(c.ph[1],1)}`, ph==null?"--":fmt(ph,1), estadoValor(ph,c.ph[0],c.ph[1])],
+    ["Lluvia o riego en el ciclo",`${c.ll[0]}–${c.ll[1]} mm`, lluviaMes(hoy)==null?"--":fmt(lluviaMes(hoy),1)+" mm este mes", ['<span class="small">Comparar con el pluviómetro</span>',null]]
+  ];
+  const evaluables=filas.filter(f=>f[3][1]!==null), cumple=evaluables.filter(f=>f[3][1]===1).length;
+  const cosecha=new Date((nv.ahora?hoy:nv.inicio).getTime()+c.ciclo*864e5);
+  let ver,cls;
+  if(nv.ahora && evaluables.length && cumple===evaluables.length){ ver=`Puede sembrar ${c.n.toLowerCase()} ahora`; cls="good"; }
+  else if(nv.ahora){ ver=`Es temporada de ${c.n.toLowerCase()}, pero ${evaluables.length-cumple} condición(es) no se cumplen`; cls="warn"; }
+  else { ver=`Espere a la próxima temporada: faltan ${nv.dias} días`; cls="bad"; }
+  P.innerHTML=`<div class="row"><h2>${esc(c.n)}</h2><span class="small">Ciclo aproximado: ${c.ciclo} días</span></div>
+    <div class="verdict"><span class="badge ${cls}">${cls==="good"?"Sí":cls==="warn"?"Con cuidado":"Esperar"}</span><div><b>${ver}</b><span class="small">${esc(c.nota||"")}</span></div></div>
+    <div class="conds">
+      <div class="cond"><div class="lab">${nv.ahora?"Temporada actual":"Próxima siembra"}</div><div class="big-date">${nv.ahora?"Ahora":fechaCorta(nv.inicio)}</div><div class="small">hasta el ${fechaCorta(nv.fin)}</div></div>
+      <div class="cond"><div class="lab">Cosecha estimada</div><div class="big-date">${fechaCorta(cosecha)}</div><div class="small">${cosecha.getFullYear()} · si siembra ${nv.ahora?"hoy":"al inicio"}</div></div>
+      <div class="cond"><div class="lab">Ventanas en el Cesar</div><div class="v" style="font-size:.95rem">${c.v.map(txtVentana).join("<br>")}</div></div>
+    </div>
+    <h3>Condiciones que necesita vs. lo que mide la estación</h3>
+    <div class="tbl"><table><thead><tr><th>Variable</th><th>Necesita</th><th>Medido ahora</th><th>Estado</th></tr></thead><tbody>
+      ${filas.map(f=>`<tr><td class="txt">${f[0]}</td><td class="txt">${f[1]}</td><td>${f[2]}</td><td>${f[3][0]}</td></tr>`).join("")}</tbody></table></div>
+    <div class="row"><button class="btn" type="button" id="verCal">Ver ventanas en el calendario</button><span class="small">El calendario marcará con una barra verde los días buenos para sembrar ${esc(c.n.toLowerCase())}.</span></div>
+    <p class="small">Valores de referencia aproximados para el Caribe colombiano. Valídelos con la UMATA, AGROSAVIA o un agrónomo antes de decidir.</p>`;
+  $("verCal").addEventListener("click",()=>{ const d=nv.ahora?hoy:nv.inicio; calMes=new Date(d.getFullYear(),d.getMonth(),1); diaSel=clave(d); irA("calendario"); });
+}
+function renderNuevoCultivo(nombre){
+  const P=$("panelMiCultivo");
+  P.innerHTML=`<h2>No conozco «${esc(nombre)}» todavía</h2>
+    <p class="lead">Agréguelo con sus datos (consúltelos con un agrónomo o en una ficha técnica) y la página lo tendrá en cuenta en todas las recomendaciones.</p>
+    <form class="reg" id="formNuevo">
+      <label class="full">Nombre<input id="nNom" value="${esc(nombre)}" required></label>
+      <label>Temperatura mínima (°C)<input type="number" id="nTmin" value="20" required></label>
+      <label>Temperatura máxima (°C)<input type="number" id="nTmax" value="32" required></label>
+      <label>Humedad del suelo mínima (%)<input type="number" id="nSmin" value="40" required></label>
+      <label>Humedad del suelo máxima (%)<input type="number" id="nSmax" value="75" required></label>
+      <label>pH mínimo<input type="number" step="0.1" id="nPhmin" value="5.5"></label>
+      <label>pH máximo<input type="number" step="0.1" id="nPhmax" value="7.0"></label>
+      <label>Ciclo (días)<input type="number" id="nCiclo" value="100" required></label>
+      <label>Luz<select id="nLuz"><option value="sol">Pleno sol</option><option value="semisombra">Semisombra</option></select></label>
+      <fieldset class="full" style="border:1px solid var(--line);border-radius:10px"><legend class="small">Meses de siembra en el Cesar</legend>
+        <div class="chips">${MESES.map((m,i)=>`<label class="chip"><input type="checkbox" value="${i+1}" ${[4,5,9,10].includes(i+1)?"checked":""}> ${m}</label>`).join("")}</div></fieldset>
+      <div class="full"><button class="btn" type="submit">Agregar cultivo</button></div>
+    </form>`;
+  $("formNuevo").addEventListener("submit",e=>{ e.preventDefault();
+    const meses=[...P.querySelectorAll("fieldset input:checked")].map(i=>+i.value);
+    if(!meses.length){ aviso("Elija al menos un mes de siembra."); return; }
+    const v=meses.map(m=>[m,1,m,new Date(2025,m,0).getDate()]);
+    const tmin=+$("nTmin").value,tmax=+$("nTmax").value;
+    const c={n:$("nNom").value.trim(),a:[],t:[tmin,tmax],o:[tmin+2,tmax-2],s:[+$("nSmin").value,+$("nSmax").value],luz:$("nLuz").value,ll:[0,0],ph:[+$("nPhmin").value||5.5,+$("nPhmax").value||7],ciclo:+$("nCiclo").value,seq:false,v,nota:"Cultivo agregado por el usuario.",propio:true};
+    propios.push(c); guardar(); llenarListas(); aviso("Cultivo agregado."); elegirCultivo(c.n); });
+}
+function llenarListas(){
+  $("listaCultivos").innerHTML=todosCultivos().map(c=>`<option value="${esc(c.n)}">`).join("");
+  $("chipsCultivos").innerHTML=todosCultivos().map(c=>`<button type="button" class="chip" data-c="${esc(c.n)}">${esc(c.n)}</button>`).join("");
+  $("chipsCultivos").querySelectorAll("[data-c]").forEach(b=>b.addEventListener("click",()=>elegirCultivo(b.dataset.c)));
+}
+
+/* ================= NAVEGACIÓN Y RENDER ================= */
+function irA(t){ tab=t; document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+  ["vivo","calendario","sembrar","micultivo"].forEach(v=>$("v-"+v).hidden=v!==t); render(); }
+function render(flash){
+  if(tab==="vivo") renderVivo(flash);
+  else if(tab==="calendario") renderCalendario();
+  else if(tab==="sembrar") renderSembrar();
+  else if(tab==="micultivo") renderMiCultivo();
+  $("btnPedir").disabled = modo==="nada";
+}
+
+/* ================= CSV ================= */
+function descargar(nombre,texto){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([texto],{type:"text/csv"})); a.download=nombre; document.body.appendChild(a); a.click(); a.remove(); }
+function csvLecturas(){
+  if(!lecturas.length){ aviso("No hay lecturas para exportar."); return; }
+  const cab="fecha_hora,id,temperatura_C,luz_cruda,luz_pct,suelo_crudo,suelo_pct,agua_cruda,mojado,senal_dBm";
+  descargar("agrosol_lecturas_"+clave(new Date())+".csv", cab+"\n"+lecturas.map(r=>[r.t.toISOString(),r.id,r.temp,r.luz,VARS.luz.valor(r).toFixed(1),r.suelo,VARS.suelo.valor(r).toFixed(1),r.agua,r.agua>AGUA_UMBRAL?1:0,r.senal??""].join(",")).join("\n"));
+}
+function csvRegistros(){
+  const ks=Object.keys(registros).sort(); if(!ks.length){ aviso("No hay registros manuales."); return; }
+  const q=s=>'"'+String(s??"").replace(/"/g,'""')+'"';
+  descargar("agrosol_registros_"+clave(new Date())+".csv","fecha,lluvia_mm,ph,N,P,K,actividad,cultivo,observaciones\n"+ks.map(k=>{const r=registros[k];return [k,r.lluvia,r.ph,r.n,r.p,r.k,q(r.act),q(r.cult),q(r.obs)].join(",");}).join("\n"));
+}
+
+/* ================= EVENTOS ================= */
+$("btnConectar").addEventListener("click",()=>modo==="usb"?desconectar():conectar());
+$("btnDemo").addEventListener("click",()=>demoTimer?detenerDemo():iniciarDemo());
+$("btnPedir").addEventListener("click",pedirDatos);
+$("auto").addEventListener("change",()=>{ programarAuto(); aviso(+$("auto").value?"Pidiendo datos automáticamente.":"Pedido automático apagado."); });
+$("btnCsv").addEventListener("click",csvLecturas);
+$("btnRegCsv").addEventListener("click",csvRegistros);
+$("btnBorrar").addEventListener("click",()=>{ const b=$("btnBorrar");
+  if(b.dataset.c){ lecturas=lecturas.filter(r=>r.demo&&modo==="demo"); guardar(); delete b.dataset.c; b.textContent="Borrar lecturas"; render(); aviso("Lecturas borradas."); return; }
+  b.dataset.c="1"; b.textContent="¿Seguro? Clic otra vez"; setTimeout(()=>{ delete b.dataset.c; b.textContent="Borrar lecturas"; },4000); });
+$("calPrev").addEventListener("click",()=>{ calMes=new Date(calMes.getFullYear(),calMes.getMonth()-1,1); renderCalendario(); });
+$("calNext").addEventListener("click",()=>{ calMes=new Date(calMes.getFullYear(),calMes.getMonth()+1,1); renderCalendario(); });
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>irA(b.dataset.tab)));
+$("formCultivo").addEventListener("submit",e=>{ e.preventDefault(); const v=$("inCultivo").value.trim(); if(!v){ aviso("Escriba un cultivo."); return; } renderMiCultivo(v); });
+if(!("serial" in navigator)) $("avisoSerial").hidden=false;
+$("calSuelo").textContent=SUELO_SATURADO; $("calAgua").textContent=AGUA_UMBRAL;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>render());
+
+cargar(); llenarListas();
+if(cultivoSel) $("inCultivo").value=cultivoSel.n;
+if(!lecturas.length || lecturas.every(r=>r.demo)) iniciarDemo(); else render();
+})();
+</script>
+</body>
+</html>
